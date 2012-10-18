@@ -1,0 +1,13 @@
+<resources>
+
+    <string name="app_name">My First App</string>
+    <string name="hello_world">Hello world!</string>
+    <string name="menu_refresh">Refresh</string>
+    <string name="menu_poll">Poll</string>
+    <string name="title_activity_main">MainActivity</string>
+    <string name="default_text">Loading</string>
+    
+    
+    <string name="button_refresh">Refresh</string>
+
+</resources>

@@ -1,0 +1,10 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/menu_refresh"
+        android:title="@string/menu_refresh"
+        android:orderInCategory="100"
+        android:showAsAction="never"/>
+    <item android:id="@+id/menu_poll"
+    	android:title="@string/menu_poll"
+        android:orderInCategory="100"
+        android:showAsAction="never"/>
+</menu>
