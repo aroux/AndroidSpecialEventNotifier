@@ -17,9 +17,12 @@ import org.asen.service.EventService;
 import org.asen.service.dto.Event;
 import org.asen.service.dto.EventsContainer;
 import org.asen.service.dto.converter.EventConverter;
+import org.asen.service.parser.EventParser;
 import org.asen.service.twitter.json.TweetEntry;
 import org.asen.service.twitter.json.TwitterResult;
 import org.asen.service.twitter.utils.HtmlManipulator;
+
+import android.content.SharedPreferences;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -30,16 +33,15 @@ public class TweetService extends EventService {
 
 	Gson gson = new GsonBuilder().setDateFormat("EEE, dd MMM yyyy HH:mm:ss ZZZZZ").create();
 
-	private static long SLEEP_TIME = 50000;
+	private static long SLEEP_TIME = 1000 * 60 * 10;
 
 	private static EventConverter<TwitterResult> tweetsConverter = new EventConverter<TwitterResult>() {
 		@Override
-		public EventsContainer convert(TwitterResult t) {
+		public EventsContainer convert(TwitterResult t, EventParser parser) {
 			List<Event> events = new ArrayList<Event>();
 			for (TweetEntry entry : t.getTweets()) {
-				Event event = new Event();
+				Event event = parser.parse(entry.getText());
 				event.setDate(entry.getDate());
-				event.setText(entry.getText());
 				events.add(event);
 			}
 			return new EventsContainer(events);
@@ -51,10 +53,13 @@ public class TweetService extends EventService {
 	}
 
 	@Override
-	protected EventsContainer processSynchAction(String accessData) {
+	protected EventsContainer processSyncAction(String accessData, EventParser parser, boolean refresh) {
 		try {
-			TwitterResult result = getLastTweets(accessData);
-			return tweetsConverter.convert(result);
+			SharedPreferences tweetServiceSettings = getSharedPreferences("TWEET_SERVICE", 0);
+			String maxId = tweetServiceSettings.getString("maxId", null);
+			TwitterResult result = getLastTweets(accessData + (refresh || maxId == null ? "" : "&since_id=" + maxId));
+			tweetServiceSettings.edit().putString("maxId", result.getMaxIdStr()).commit();
+			return tweetsConverter.convert(result, parser);
 		} catch (IOException e) {
 			logger.log(Level.SEVERE, "Impossible to dl data : " + e.getClass().getSimpleName() + " : " + e.getMessage());
 		}

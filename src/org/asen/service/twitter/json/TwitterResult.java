@@ -18,8 +18,8 @@ public class TwitterResult implements Serializable {
 
 	private static final long serialVersionUID = 8945609557004554913L;
 
-	@SerializedName("max_id")
-	private long maxId;
+	@SerializedName("max_id_str")
+	private String maxIdStr;
 
 	@SerializedName("results")
 	private List<TweetEntry> tweets;

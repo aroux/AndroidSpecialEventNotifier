@@ -2,7 +2,9 @@ package org.asen.service;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -14,20 +16,23 @@ import lombok.RequiredArgsConstructor;
 
 import org.asen.intent.EventSearchRequest;
 import org.asen.intent.EventSearchResponse;
-import org.asen.service.dto.DetailedEvent;
 import org.asen.service.dto.Event;
 import org.asen.service.dto.EventsContainer;
 import org.asen.service.matcher.EventMatcher;
 import org.asen.service.parser.EventParser;
 import org.asen.service.twitter.TweetService;
+import org.asen.time.LocalTimeUtils;
+import org.joda.time.DateTime;
+import org.joda.time.Interval;
+import org.joda.time.LocalTime;
 
-import android.R;
 import android.app.IntentService;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
+import android.media.RingtoneManager;
 import android.os.Bundle;
 
 public abstract class EventService extends IntentService {
@@ -41,6 +46,14 @@ public abstract class EventService extends IntentService {
 	private NotificationManager notificationMananger = null;
 
 	private final AtomicInteger notifCounter = new AtomicInteger(0);
+
+
+	private final static List<Interval> pollPeriods = new ArrayList<Interval>();
+
+	static {
+		pollPeriods.add(LocalTimeUtils.create(new LocalTime(6,30), new LocalTime(8,30)));
+		pollPeriods.add(LocalTimeUtils.create(new LocalTime(16,30), new LocalTime(18,30)));
+	}
 
 	protected EventService(String name){
 		super(name);
@@ -63,7 +76,11 @@ public abstract class EventService extends IntentService {
 			String url = esr.getAccessData();
 			switch (esr.getSearchAction()) {
 			case SYNC:
-				EventsContainer events = processSynchAction(url);
+				EventsContainer events = processSyncAction(url, esr.getParser(), true);
+				//				for (Event event : events.getEvents()) {
+				//					DetailedEvent detailedEvent = esr.getParser().parse(event);
+				//					event.setIcon(detailedEvent.getIcon());
+				//				}
 				responseBack(Intent.ACTION_SYNC, events, esr);
 				break;
 			case POLL:
@@ -80,7 +97,7 @@ public abstract class EventService extends IntentService {
 		}
 	}
 
-	abstract protected EventsContainer processSynchAction(String accessData);
+	abstract protected EventsContainer processSyncAction(String accessData, EventParser eventParser, boolean refresh);
 
 	abstract protected long getSleepTime();
 
@@ -103,19 +120,35 @@ public abstract class EventService extends IntentService {
 		private final EventParser parser;
 		DateFormat df = new SimpleDateFormat("HH:mm:ss");
 
+		private boolean pollIsEnabled() {
+			DateTime now = LocalTimeUtils.create(LocalTime.now());
+
+			for (Interval interval : pollPeriods) {
+				if (interval.contains(now)) {
+					return true;
+				}
+			}
+			return false;
+		}
+
 		@Override
 		public void run() {
+
 			while (cont.get()) {
-				EventsContainer events = processSynchAction(url);
 
-				if (matcher != null) {
-					for (Event event : events.getEvents()) {
-						boolean matched = matcher.match(event);
+				if (pollIsEnabled()) {
 
-						if (matched) {
-							sendNotification(event);
+					EventsContainer events = processSyncAction(url, parser, true);
+
+					if (matcher != null) {
+						for (Event event : events.getEvents()) {
+							boolean matched = matcher.match(event);
+
+							if (matched) {
+								sendNotification(event);
+							}
+							//logger.log(Level.INFO, (matched ? "MATCHED" : "NOT MATCHED") + " : event -> " + event);
 						}
-						//logger.log(Level.INFO, (matched ? "MATCHED" : "NOT MATCHED") + " : event -> " + event);
 					}
 				}
 
@@ -130,12 +163,13 @@ public abstract class EventService extends IntentService {
 
 		private void sendNotification(Event event) {
 
-			DetailedEvent detailedEvent = parser.parse(event);
+			//DetailedEvent detailedEvent = parser.parse(event);
 
 			CharSequence tickerText = "Traffic Warning";
-			CharSequence contentTitle = df.format(event.getDate()) + " : " + detailedEvent.getWhere();
-			CharSequence contentText =  detailedEvent.getCategory() + " : " + detailedEvent.getShortDescription();
-			Notification notification = new Notification(R.drawable.btn_star, tickerText,System.currentTimeMillis());
+			CharSequence contentTitle = df.format(event.getDate()) + " : " + event.getTitle();
+			CharSequence contentText =  event.getText();
+			Notification notification = new Notification(event.getIcon(), tickerText,System.currentTimeMillis());
+			notification.sound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
 			Intent notificationIntent = new Intent(EventService.this, TweetService.class);
 			PendingIntent contentIntent = PendingIntent.getActivity(EventService.this, 0, notificationIntent, 0);
 			notification.setLatestEventInfo(getApplicationContext(), contentTitle, contentText, contentIntent);

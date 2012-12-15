@@ -1,66 +1,81 @@
 package org.asen.service.twitter.json.tcs.parser;
 
-import org.asen.service.dto.DetailedEvent;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+
+import org.asen.R;
 import org.asen.service.dto.Event;
 import org.asen.service.parser.EventParser;
+
 
 public class TCSParser implements EventParser {
 
 	private static final long serialVersionUID = -2699459514194572423L;
 
-	private static String[] problems = { //
-		"trafic en accordéon", //
-		"trafic perturbé", //
-		"voie de droite fermée", //
-		"voie de gauche fermée", //
-		"bouchon", //
-		"véhicule en panne", //
-		"tunnel fermé dans les deux sens", //
-		"route fermée", //
-		"véhicule en feu", //
-		"objet sur la chaussée", //
-		"piétons sur la chaussée", //
-		"retour à la normale"
-	};
+	//	private static String[] problems = { //
+	//		"trafic en accordéon", //
+	//		"trafic perturbé", //
+	//		"voie de droite fermée", //
+	//		"voie de gauche fermée", //
+	//		"bouchon", //
+	//		"véhicule en panne", //
+	//		"tunnel fermé dans les deux sens", //
+	//		"route fermée", //
+	//		"véhicule en feu", //
+	//		"objet sur la chaussée", //
+	//		"piétons sur la chaussée", //
+	//		"retour à la normale"
+	//	};
+
+	private static Map<String, Integer> categoryIconMap = new HashMap<String, Integer>();
+
+	static {
+		categoryIconMap.put("chaussée recouverte de boue", R.drawable.icn_traffic_yellow);
+		categoryIconMap.put("surcharge de trafic", R.drawable.icn_traffic_yellow);
+		categoryIconMap.put("accident", R.drawable.icn_traffic_red);
+	}
 
 	@Override
-	public DetailedEvent parse(Event event) {
-		String split[] = event.getText().split(" - ");
+	public Event parse(String eventStr) {
+		String split[] = eventStr.split(" - ");
 		if (split.length != 3) {
-			return defaultDetailedEvent(event);
+			return defaultDetailedEvent(eventStr);
 		}
 
-		String where = split[1].trim();
-		if (where.length() == 0) {
-			return defaultDetailedEvent(event);
+		String title = split[1].trim();
+		if (title.length() == 0) {
+			return defaultDetailedEvent(eventStr);
 		}
 
 		String splitDescription[] = split[2].split(",");
 		String category = "Unknown";
-		if (split.length > 2) {
+		Integer iconId = R.drawable.icn_traffic_black;
+		if (splitDescription.length > 1) {
 			category = splitDescription[1].trim();
+
+			if (categoryIconMap.containsKey(category)) {
+				iconId = categoryIconMap.get(category);
+			}
 		}
 
-		String shortDescription = splitDescription[0];
-		String longDescription = event.getText();
+		String text = splitDescription[0];
 
-		DetailedEvent detailedEvent = new DetailedEvent();
-		detailedEvent.setCategory(category);
-		detailedEvent.setEvent(event);
-		detailedEvent.setLongDescription(longDescription);
-		detailedEvent.setShortDescription(shortDescription);
-		detailedEvent.setWhere(where);
-		return detailedEvent;
+		Event event = new Event();
+		event.setTitle(title);
+		event.setCategory(category);
+		event.setText(text);
+		event.setIcon(iconId);
+		return event;
 	}
 
-	private DetailedEvent defaultDetailedEvent(Event event) {
-		DetailedEvent detailedEvent = new DetailedEvent();
-		detailedEvent.setEvent(event);
-		detailedEvent.setCategory("Unknown");
-		detailedEvent.setWhere("Somewhere");
-		detailedEvent.setLongDescription(event.getText());
-		detailedEvent.setShortDescription(event.getText());
-		return detailedEvent;
+	private Event defaultDetailedEvent(String eventStr) {
+		Event event = new Event();
+		event.setTitle("Traffic event");
+		event.setCategory("Unknown category");
+		event.setDate(new Date());
+		event.setText(eventStr);
+		return event;
 	}
 
 }

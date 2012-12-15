@@ -1,5 +1,7 @@
 package org.asen.activity;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.LogManager;
 import java.util.logging.Logger;
@@ -34,7 +36,17 @@ public class MainActivity extends ListActivity {
 
 	private MyReceiver myReceiver;
 
+	private final List<Event> allEvents = new ArrayList<Event>();
 	private ArrayAdapter<Event> listAdapter;
+
+	private boolean displayFiltered = false;
+
+	/* TODO : put these variables in config*/
+	private final EventMatcher matcher = EventMatchers.or( //
+			EventMatchers.or(EventMatchers.pattern(".*Lausanne.*"), EventMatchers.pattern(".*Gland.*")).get(), //
+			EventMatchers.pattern(".*Cossoney.*")).get();
+	private final EventParser parser = new TCSParser();
+	private final String url = "http://search.twitter.com/search.json?q=tcstrafica1&rpp=20";
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
@@ -56,7 +68,7 @@ public class MainActivity extends ListActivity {
 		//		ViewGroup root = (ViewGroup) findViewById(android.R.id.content);
 		//		root.addView(layout);
 
-		listAdapter = new ArrayAdapter<Event>(this, android.R.layout.simple_list_item_1);
+		listAdapter = new MyArrayAdapter(this, android.R.layout.simple_list_item_1);
 		setListAdapter(listAdapter);
 	}
 
@@ -75,19 +87,23 @@ public class MainActivity extends ListActivity {
 		case R.id.menu_poll :
 			onPoll();
 			return true;
+		case R.id.menu_filter :
+			onFilter();
+			return true;
 		default :
 			return super.onOptionsItemSelected(item);
 		}
 	}
 
-	public void onRefresh() {
-
+	private void onRefresh() {
+		allEvents.clear();
+		listAdapter.clear();
 		Intent intent = new Intent(MainActivity.this, TweetService.class);
 		Bundle bundle = new Bundle();
-		bundle.putSerializable(EventSearchRequest.ACTION_ID, new EventSearchRequest("http://search.twitter.com/search.json?q=tcstrafica1&since_id=229983581521457152", EventAction.SYNC, null, null));
+		bundle.putSerializable(EventSearchRequest.ACTION_ID, new EventSearchRequest(url, EventAction.SYNC, null, parser));
 		intent.putExtras(bundle);
 		intent.setAction(EventSearchRequest.ACTION_ID);
-		PendingIntent pendingIntent = PendingIntent.getService(MainActivity.this, 0, intent, 0);
+		PendingIntent pendingIntent = PendingIntent.getService(MainActivity.this, 0, intent, PendingIntent.FLAG_ONE_SHOT);
 		try {
 			pendingIntent.send();
 		} catch (CanceledException e) {
@@ -95,22 +111,33 @@ public class MainActivity extends ListActivity {
 		}
 	}
 
-	public void onPoll() {
+	private void onPoll() {
 
 		Intent intent = new Intent(MainActivity.this, TweetService.class);
 		Bundle bundle = new Bundle();
-		EventMatcher matcher = EventMatchers.or(EventMatchers.pattern(".*Lausanne.*"), EventMatchers.pattern(".*Gland.*")).get();
-		EventParser parser = new TCSParser();
-		EventSearchRequest request = new EventSearchRequest("http://search.twitter.com/search.json?q=tcstrafica1&since_id=229983581521457152", //
-				EventAction.POLL, matcher, parser);
+		EventSearchRequest request = new EventSearchRequest(url, EventAction.POLL, matcher, parser);
 		bundle.putSerializable(EventSearchRequest.ACTION_ID, request);
 		intent.putExtras(bundle);
 		intent.setAction(EventSearchRequest.ACTION_ID);
-		PendingIntent pendingIntent = PendingIntent.getService(MainActivity.this, 0, intent, 0);
+		PendingIntent pendingIntent = PendingIntent.getService(MainActivity.this, 0, intent, PendingIntent.FLAG_ONE_SHOT);
 		try {
 			pendingIntent.send();
 		} catch (CanceledException e) {
 			logger.log(Level.SEVERE, "Impossible to refresh.", e);
+		}
+	}
+
+	private void onFilter() {
+		displayFiltered = !displayFiltered;
+		listAdapter.clear();
+		for (Event event : allEvents) {
+			if (displayFiltered) {
+				if (matcher.match(event)) {
+					listAdapter.add(event);
+				}
+			} else {
+				listAdapter.add(event);
+			}
 		}
 	}
 
@@ -138,7 +165,14 @@ public class MainActivity extends ListActivity {
 			EventsContainer result = response.getEvents();
 
 			for (Event event : result.getEvents()) {
-				listAdapter.add(event);
+				allEvents.add(event);
+				if (displayFiltered) {
+					if (matcher.match(event)) {
+						listAdapter.add(event);
+					}
+				} else {
+					listAdapter.add(event);
+				}
 			}
 		}
 	}

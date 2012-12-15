@@ -1,10 +1,14 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:id="@+id/menu_refresh"
         android:title="@string/menu_refresh"
-        android:orderInCategory="100"
-        android:showAsAction="never"/>
+        android:orderInCategory="100" />
+<!--         android:showAsAction="never"/> -->
     <item android:id="@+id/menu_poll"
     	android:title="@string/menu_poll"
+        android:orderInCategory="100" />
+    <item android:id="@+id/menu_filter"
+    	android:title="@string/menu_filter"
         android:orderInCategory="100"
-        android:showAsAction="never"/>
+        />
+<!--         android:showAsAction="never"/> -->
 </menu>

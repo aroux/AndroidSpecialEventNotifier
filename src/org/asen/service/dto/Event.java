@@ -14,7 +14,13 @@ public class Event implements Serializable {
 
 	private static final long serialVersionUID = 1695729732288368379L;
 
+	private String title;
+
+	private String category;
+
 	private String text;
 
 	private Date date;
+
+	private int icon;
 }

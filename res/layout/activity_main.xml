@@ -1,6 +1,95 @@
- <ListView xmlns:android="http://schemas.android.com/apk/res/android"
-    	xmlns:tools="http://schemas.android.com/tools"
-     	android:id="@android:id/list"
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical" >
+
+    <ListView
+        android:id="@android:id/list"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        />
+        android:layout_height="wrap_content" >
+    </ListView>
+    
+   <!-- <RelativeLayout
+        android:id="@+id/list_row_layout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" >
+    </RelativeLayout -->
+    
+   	<ImageView android:id="@+id/list_icon_view"
+        android:layout_width="wrap_content"
+   		android:layout_height="wrap_content"
+   		android:layout_alignParentLeft="true"
+   		android:layout_centerVertical="true"
+   		android:layout_marginLeft="5sp"
+    />
+    
+   	<RelativeLayout
+   	    android:id="@+id/list_text_layout" 
+	        android:layout_width="fill_parent"
+    		android:layout_height="wrap_content"
+    		android:layout_toRightOf="@id/list_icon_view" 
+    		android:layout_marginLeft="5sp" >
+    		
+   	       	<RelativeLayout
+   	    	android:id="@+id/list_title_layout" 
+		        android:layout_width="wrap_content"
+	    		android:layout_height="wrap_content"
+	    		android:layout_alignParentTop="true"
+	    	>
+    		
+   	       	   <TextView android:id="@+id/list_date_view" 
+			        android:layout_width="wrap_content"
+		    		android:layout_height="wrap_content" 
+		    		android:layout_alignParentLeft="true"
+		    		android:textStyle="bold"
+		    		/>
+   	       	    
+   	       	    <TextView android:id="@+id/list_title_view" 
+			        android:layout_width="fill_parent"
+		    		android:layout_height="wrap_content"
+		    		android:layout_toRightOf="@id/list_date_view"
+		    		android:layout_marginLeft="5sp"
+		    		android:textStyle="bold"
+		    		/>
+    		
+    		</RelativeLayout>
+    		
+   	       	<TextView android:id="@+id/list_category_view" 
+	        android:layout_width="wrap_content"
+    		android:layout_height="wrap_content"
+    		android:layout_below="@+id/list_title_layout" 
+    		android:textStyle="italic"
+    		/>
+   	       	
+    		<TextView android:id="@+id/list_text_view" 
+	        android:layout_width="fill_parent"
+    		android:layout_height="wrap_content"
+    		android:layout_below="@+id/list_category_view" 
+    		/>
+   	</RelativeLayout>
+
+</RelativeLayout> 
+
+
+<!-- <LinearLayout 
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical" >
+	<ListView android:id="@android:id/list"
+	        android:layout_width="match_parent"
+	        android:layout_height="match_parent"
+	        />
+	 
+	<TextView android:id="@+id/list_text_view" 
+	        android:layout_width="match_parent"
+    		android:layout_height="match_parent"
+	    />
+	<ImageView android:id="@+id/list_icon_view"
+	        android:layout_width="match_parent"
+    		android:layout_height="match_parent"
+	    />
+</LinearLayout>
+
+android:layout_toRightOf="@id/list_icon_view" 
+ -->
