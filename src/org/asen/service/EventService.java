@@ -18,6 +18,7 @@ import org.asen.intent.EventSearchRequest;
 import org.asen.intent.EventSearchResponse;
 import org.asen.intent.PollerStatusRequest;
 import org.asen.intent.PollerStatusResponse;
+import org.asen.intent.SettingsSync;
 import org.asen.service.dto.Event;
 import org.asen.service.dto.EventsContainer;
 import org.asen.service.matcher.EventMatcher;
@@ -52,6 +53,10 @@ public abstract class EventService extends Service {
 
 	private final static List<Interval> pollPeriods = new ArrayList<Interval>();
 
+	private static long DEFAULT_POLL_TIME = 1000 * 60 * 10;
+
+	private long pollTime = DEFAULT_POLL_TIME;
+
 	public class LocalBinder extends Binder {
 		EventService getService() {
 			return EventService.this;
@@ -63,7 +68,6 @@ public abstract class EventService extends Service {
 	static {
 		pollPeriods.add(LocalTimeUtils.create(new LocalTime(6,30), new LocalTime(8,30)));
 		pollPeriods.add(LocalTimeUtils.create(new LocalTime(16,30), new LocalTime(18,30)));
-		//pollPeriods.add(LocalTimeUtils.create(new LocalTime(2,00), new LocalTime(17,50)));
 	}
 
 	protected EventService(String name){
@@ -97,8 +101,9 @@ public abstract class EventService extends Service {
 				break;
 			case POLL:
 				if (!loaders.containsKey(url)) {
-					IntervalEventsLoaderThread loader = new IntervalEventsLoaderThread(getSleepTime(), //
+					IntervalEventsLoaderThread loader = new IntervalEventsLoaderThread(
 							new AtomicBoolean(true), url, esr.getMatcher(), esr.getParser());
+					loader.setPollTime(pollTime);
 					loader.start();
 					loaders.put(url, loader);
 					sendPollerStatus(url, true);
@@ -113,14 +118,30 @@ public abstract class EventService extends Service {
 		} else if (PollerStatusRequest.ACTION_ID.equals(intent.getAction())) {
 			PollerStatusRequest pollerStatus = (PollerStatusRequest) intent.getExtras().getSerializable(PollerStatusRequest.ACTION_ID);
 			sendPollerStatus(pollerStatus.getUrl(), loaders.containsKey(pollerStatus.getUrl()));
+		} else if (SettingsSync.ACTION_ID.equals(intent.getAction())) {
+			SettingsSync settingsSync = (SettingsSync) intent.getExtras().getSerializable(SettingsSync.ACTION_ID);
+			if (settingsSync.getPollInterval() != null ){
+				pollPeriods.clear();
+				pollPeriods.addAll(settingsSync.getPollInterval());
+			}
+			if (settingsSync.getPollTime() != null) {
+				try {
+					pollTime = Long.parseLong(settingsSync.getPollTime());
+					for (IntervalEventsLoaderThread loader : loaders.values()) {
+						loader.setPollTime(pollTime);
+						// Needed to take new pollTime into account
+						loader.pollNow();
+					}
+				}catch (NumberFormatException e) {
+					// Ignore setting
+				}
+			}
 		} else {
 			logger.log(Level.SEVERE, "Intent action not supported : " + intent.getAction());
 		}
 	}
 
 	abstract protected EventsContainer processSyncAction(String accessData, EventParser eventParser, boolean refresh);
-
-	abstract protected long getSleepTime();
 
 	private void responseBack(String action, EventsContainer events, EventSearchRequest request) {
 		EventSearchResponse response = new EventSearchResponse(events, request);
@@ -143,13 +164,21 @@ public abstract class EventService extends Service {
 	@RequiredArgsConstructor(suppressConstructorProperties=true)
 	private class IntervalEventsLoaderThread extends Thread {
 
-		private final long sleepTime;
+		private long sleepTime;
 		private final AtomicBoolean cont;
 		private final String url;
 		private final EventMatcher matcher;
 		private final EventParser parser;
 		private final DateFormat df = new SimpleDateFormat("HH:mm:ss");
 		private Thread runningThread;
+
+		public void setPollTime(long pollTime) {
+			sleepTime = pollTime;
+		}
+
+		public void pollNow() {
+			runningThread.interrupt();
+		}
 
 		private boolean pollIsEnabled() {
 			DateTime now = LocalTimeUtils.create(LocalTime.now());
@@ -175,34 +204,32 @@ public abstract class EventService extends Service {
 
 			runningThread = Thread.currentThread();
 			while (cont.get()) {
+				try {
+					if (pollIsEnabled()) {
 
-				if (pollIsEnabled()) {
+						EventsContainer events = processSyncAction(url, parser, false);
 
-					EventsContainer events = processSyncAction(url, parser, false);
+						if (matcher != null) {
+							for (Event event : events.getEvents()) {
 
-					if (matcher != null) {
-						for (Event event : events.getEvents()) {
+								DateMidnight eventDateMidnight = new DateMidnight(event.getDate());
+								if (eventDateMidnight.equals(DateMidnight.now())) {
+									DateTime eventDateTime = LocalTimeUtils.create(new LocalTime(event.getDate()));
+									if (pollIsEnabled(eventDateTime)) {
 
-							DateMidnight eventDateMidnight = new DateMidnight(event.getDate());
-							if (eventDateMidnight.equals(DateMidnight.now())) {
-								DateTime eventDateTime = LocalTimeUtils.create(new LocalTime(event.getDate()));
-								if (pollIsEnabled(eventDateTime)) {
+										boolean matched = matcher.match(event);
 
-									boolean matched = matcher.match(event);
-
-									if (matched) {
-										sendNotification(event);
+										if (matched) {
+											sendNotification(event);
+										}
 									}
 								}
 							}
 						}
 					}
-				}
-
-				try {
 					Thread.sleep(sleepTime);
 				} catch (InterruptedException e) {
-					logger.log(Level.WARNING, "Sleep interrupted");
+					logger.log(Level.WARNING, "Polling interrupted.");
 				}
 			}
 		}

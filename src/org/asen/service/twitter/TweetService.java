@@ -33,8 +33,6 @@ public class TweetService extends EventService {
 
 	Gson gson = new GsonBuilder().setDateFormat("EEE, dd MMM yyyy HH:mm:ss ZZZZZ").create();
 
-	private static long SLEEP_TIME = 1000 * 60 * 10;
-
 	private static EventConverter<TwitterResult> tweetsConverter = new EventConverter<TwitterResult>() {
 		@Override
 		public EventsContainer convert(TwitterResult t, EventParser parser) {
@@ -67,12 +65,6 @@ public class TweetService extends EventService {
 			logger.log(Level.SEVERE, "Impossible to dl data : " + e.getClass().getSimpleName() + " : " + e.getMessage());
 		}
 		return null;
-	}
-
-
-	@Override
-	protected long getSleepTime() {
-		return SLEEP_TIME;
 	}
 
 	private TwitterResult getLastTweets(String urlStr) throws IOException {
