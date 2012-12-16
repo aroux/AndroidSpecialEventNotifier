@@ -138,7 +138,7 @@ public abstract class EventService extends IntentService {
 
 				if (pollIsEnabled()) {
 
-					EventsContainer events = processSyncAction(url, parser, true);
+					EventsContainer events = processSyncAction(url, parser, false);
 
 					if (matcher != null) {
 						for (Event event : events.getEvents()) {
