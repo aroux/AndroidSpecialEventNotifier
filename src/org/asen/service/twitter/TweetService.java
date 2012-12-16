@@ -55,10 +55,13 @@ public class TweetService extends EventService {
 	@Override
 	protected EventsContainer processSyncAction(String accessData, EventParser parser, boolean refresh) {
 		try {
+			//refresh = true;
 			SharedPreferences tweetServiceSettings = getSharedPreferences("TWEET_SERVICE", 0);
 			String maxId = tweetServiceSettings.getString("maxId", null);
 			TwitterResult result = getLastTweets(accessData + (refresh || maxId == null ? "" : "&since_id=" + maxId));
-			tweetServiceSettings.edit().putString("maxId", result.getMaxIdStr()).commit();
+			if (!refresh) {
+				tweetServiceSettings.edit().putString("maxId", result.getMaxIdStr()).commit();
+			}
 			return tweetsConverter.convert(result, parser);
 		} catch (IOException e) {
 			logger.log(Level.SEVERE, "Impossible to dl data : " + e.getClass().getSimpleName() + " : " + e.getMessage());

@@ -1,14 +1,18 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:id="@+id/menu_refresh"
         android:title="@string/menu_refresh"
-        android:orderInCategory="100" />
+         android:icon="@android:drawable/ic_menu_rotate" 
+        android:orderInCategory="1" />
+    
 <!--         android:showAsAction="never"/> -->
     <item android:id="@+id/menu_poll"
-    	android:title="@string/menu_poll"
-        android:orderInCategory="100" />
+    	android:title="@string/menu_poll_disabled"
+    	 android:icon="@android:drawable/ic_menu_recent_history" 
+        android:orderInCategory="2" />
     <item android:id="@+id/menu_filter"
     	android:title="@string/menu_filter"
-        android:orderInCategory="100"
+    	android:icon="@android:drawable/ic_menu_sort_alphabetically"
+    	android:orderInCategory="3"
         />
 <!--         android:showAsAction="never"/> -->
 </menu>

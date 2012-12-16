@@ -2,7 +2,8 @@
 
     <string name="app_name">ASEN</string>
     <string name="menu_refresh">Refresh</string>
-    <string name="menu_poll">Poll</string>
+    <string name="menu_poll_enabled">Notifs ON</string>
+    <string name="menu_poll_disabled">Notifs OFF</string>
     <string name="menu_filter">Filter</string>
     <string name="title_activity_main">ASEN</string>
     <string name="default_text">Loading</string>

@@ -54,7 +54,7 @@ public class EventMatchers  {
 
 			@Override
 			public boolean match(Event event) {
-				return p.matcher(event.getText()).matches();
+				return p.matcher(event.getTitle() + " " + event.getText()).matches();
 			}
 		};
 	}

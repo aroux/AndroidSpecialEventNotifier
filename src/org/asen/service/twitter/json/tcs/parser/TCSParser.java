@@ -34,6 +34,9 @@ public class TCSParser implements EventParser {
 		categoryIconMap.put("chaussée recouverte de boue", R.drawable.icn_traffic_yellow);
 		categoryIconMap.put("surcharge de trafic", R.drawable.icn_traffic_yellow);
 		categoryIconMap.put("accident", R.drawable.icn_traffic_red);
+		categoryIconMap.put("véhicule en panne. Danger", R.drawable.icn_traffic_red);
+		categoryIconMap.put("roulez très prudemment", R.drawable.icn_traffic_yellow);
+		categoryIconMap.put("accident dégagé", R.drawable.icn_traffic_green);
 	}
 
 	@Override
@@ -43,7 +46,7 @@ public class TCSParser implements EventParser {
 			return defaultDetailedEvent(eventStr);
 		}
 
-		String title = split[1].trim();
+		String title = split[1].trim().replace("->", "→");
 		if (title.length() == 0) {
 			return defaultDetailedEvent(eventStr);
 		}
@@ -58,8 +61,12 @@ public class TCSParser implements EventParser {
 				iconId = categoryIconMap.get(category);
 			}
 		}
-
 		String text = splitDescription[0];
+		if (splitDescription.length > 2) {
+			for (int i = 2; i<splitDescription.length; ++i) {
+				text += (", " + splitDescription[i]);
+			}
+		}
 
 		Event event = new Event();
 		event.setTitle(title);

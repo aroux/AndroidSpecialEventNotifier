@@ -6,8 +6,8 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.LogManager;
 import java.util.logging.Logger;
@@ -16,48 +16,58 @@ import lombok.RequiredArgsConstructor;
 
 import org.asen.intent.EventSearchRequest;
 import org.asen.intent.EventSearchResponse;
+import org.asen.intent.PollerStatusRequest;
+import org.asen.intent.PollerStatusResponse;
 import org.asen.service.dto.Event;
 import org.asen.service.dto.EventsContainer;
 import org.asen.service.matcher.EventMatcher;
 import org.asen.service.parser.EventParser;
 import org.asen.service.twitter.TweetService;
 import org.asen.time.LocalTimeUtils;
+import org.joda.time.DateMidnight;
 import org.joda.time.DateTime;
 import org.joda.time.Interval;
 import org.joda.time.LocalTime;
 
-import android.app.IntentService;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
 import android.media.RingtoneManager;
+import android.os.Binder;
 import android.os.Bundle;
+import android.os.IBinder;
 
-public abstract class EventService extends IntentService {
+public abstract class EventService extends Service {
 
 	Logger logger = LogManager.getLogManager().getLogger("");
 
 	private final Map<String, IntervalEventsLoaderThread> loaders = new HashMap<String, IntervalEventsLoaderThread>();
 
-	private final AtomicReference<Boolean> contLoaders = new AtomicReference<Boolean>();
-
 	private NotificationManager notificationMananger = null;
 
 	private final AtomicInteger notifCounter = new AtomicInteger(0);
 
-
 	private final static List<Interval> pollPeriods = new ArrayList<Interval>();
+
+	public class LocalBinder extends Binder {
+		EventService getService() {
+			return EventService.this;
+		}
+	}
+
+	private final IBinder mBinder = new LocalBinder();
 
 	static {
 		pollPeriods.add(LocalTimeUtils.create(new LocalTime(6,30), new LocalTime(8,30)));
 		pollPeriods.add(LocalTimeUtils.create(new LocalTime(16,30), new LocalTime(18,30)));
+		//pollPeriods.add(LocalTimeUtils.create(new LocalTime(2,00), new LocalTime(17,50)));
 	}
 
 	protected EventService(String name){
-		super(name);
-		contLoaders.set(true);
+		//super(name);
 	}
 
 	@Override
@@ -66,10 +76,16 @@ public abstract class EventService extends IntentService {
 		if (notificationMananger == null) {
 			notificationMananger = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
 		}
+		onHandleIntent(intent);
 		return START_STICKY;
 	}
 
+
 	@Override
+	public IBinder onBind(Intent intent) {
+		return mBinder;
+	}
+
 	protected void onHandleIntent(Intent intent) {
 		if (EventSearchRequest.ACTION_ID.equals(intent.getAction())) {
 			EventSearchRequest esr = (EventSearchRequest) intent.getExtras().getSerializable(EventSearchRequest.ACTION_ID);
@@ -77,21 +93,26 @@ public abstract class EventService extends IntentService {
 			switch (esr.getSearchAction()) {
 			case SYNC:
 				EventsContainer events = processSyncAction(url, esr.getParser(), true);
-				//				for (Event event : events.getEvents()) {
-				//					DetailedEvent detailedEvent = esr.getParser().parse(event);
-				//					event.setIcon(detailedEvent.getIcon());
-				//				}
 				responseBack(Intent.ACTION_SYNC, events, esr);
 				break;
 			case POLL:
 				if (!loaders.containsKey(url)) {
 					IntervalEventsLoaderThread loader = new IntervalEventsLoaderThread(getSleepTime(), //
-							contLoaders, url, esr.getMatcher(), esr.getParser());
+							new AtomicBoolean(true), url, esr.getMatcher(), esr.getParser());
 					loader.start();
 					loaders.put(url, loader);
+					sendPollerStatus(url, true);
+				} else {
+					IntervalEventsLoaderThread loader = loaders.get(url);
+					loader.stopPoller();
+					loaders.remove(url);
+					sendPollerStatus(url, false);
 				}
 				break;
 			}
+		} else if (PollerStatusRequest.ACTION_ID.equals(intent.getAction())) {
+			PollerStatusRequest pollerStatus = (PollerStatusRequest) intent.getExtras().getSerializable(PollerStatusRequest.ACTION_ID);
+			sendPollerStatus(pollerStatus.getUrl(), loaders.containsKey(pollerStatus.getUrl()));
 		} else {
 			logger.log(Level.SEVERE, "Intent action not supported : " + intent.getAction());
 		}
@@ -110,30 +131,49 @@ public abstract class EventService extends IntentService {
 		sendBroadcast(bIntent);
 	}
 
+	private void sendPollerStatus(String url, boolean status) {
+		PollerStatusResponse pollerStatus = new PollerStatusResponse(url, status);
+		Intent bIntent = new Intent(PollerStatusResponse.ACTION_ID);
+		Bundle bundle = new Bundle();
+		bundle.putSerializable(PollerStatusResponse.ACTION_ID, pollerStatus);
+		bIntent.putExtras(bundle);
+		sendBroadcast(bIntent);
+	}
+
 	@RequiredArgsConstructor(suppressConstructorProperties=true)
 	private class IntervalEventsLoaderThread extends Thread {
 
 		private final long sleepTime;
-		private final AtomicReference<Boolean> cont;
+		private final AtomicBoolean cont;
 		private final String url;
 		private final EventMatcher matcher;
 		private final EventParser parser;
-		DateFormat df = new SimpleDateFormat("HH:mm:ss");
+		private final DateFormat df = new SimpleDateFormat("HH:mm:ss");
+		private Thread runningThread;
 
 		private boolean pollIsEnabled() {
 			DateTime now = LocalTimeUtils.create(LocalTime.now());
+			return pollIsEnabled(now);
+		}
 
+		private boolean pollIsEnabled(DateTime date) {
 			for (Interval interval : pollPeriods) {
-				if (interval.contains(now)) {
+				if (interval.contains(date)) {
 					return true;
 				}
 			}
 			return false;
 		}
 
+		public void stopPoller() {
+			cont.set(false);
+			runningThread.interrupt();
+		}
+
 		@Override
 		public void run() {
 
+			runningThread = Thread.currentThread();
 			while (cont.get()) {
 
 				if (pollIsEnabled()) {
@@ -142,12 +182,19 @@ public abstract class EventService extends IntentService {
 
 					if (matcher != null) {
 						for (Event event : events.getEvents()) {
-							boolean matched = matcher.match(event);
 
-							if (matched) {
-								sendNotification(event);
+							DateMidnight eventDateMidnight = new DateMidnight(event.getDate());
+							if (eventDateMidnight.equals(DateMidnight.now())) {
+								DateTime eventDateTime = LocalTimeUtils.create(new LocalTime(event.getDate()));
+								if (pollIsEnabled(eventDateTime)) {
+
+									boolean matched = matcher.match(event);
+
+									if (matched) {
+										sendNotification(event);
+									}
+								}
 							}
-							//logger.log(Level.INFO, (matched ? "MATCHED" : "NOT MATCHED") + " : event -> " + event);
 						}
 					}
 				}
