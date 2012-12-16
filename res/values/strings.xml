@@ -25,5 +25,5 @@
     <string name="default_settings_url">http://search.twitter.com/search.json?q=tcstrafica1&amp;rpp=20</string>
     <string name="default_settings_poll_time">600000</string>
     <string name="default_settings_filter_pattern">Lausanne-Crisser|Villars-Saint-Croix</string>
-    <string name="default_settings_interval_pattern">11:00-12:00|13:00-14:00</string>
+    <string name="default_settings_interval_pattern">06:30-08:30|16:30-18:30</string>
 </resources>
